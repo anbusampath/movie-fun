@@ -19,6 +19,8 @@ package org.superbiz.moviefun;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.superbiz.moviefun.movies.Movie;
 import org.superbiz.moviefun.movies.MoviesBean;
 
@@ -41,6 +43,12 @@ public class ActionServlet extends HttpServlet {
 
     @Autowired
     private MoviesBean moviesBean;
+    private final PlatformTransactionManager moviesTransactionManager;
+
+    public ActionServlet(MoviesBean moviesBean, PlatformTransactionManager moviesTransactionManager) {
+        this.moviesBean = moviesBean;
+        this.moviesTransactionManager = moviesTransactionManager;
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -54,6 +62,8 @@ public class ActionServlet extends HttpServlet {
 
     private void process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
+        TransactionTemplate transactionTemplate = new TransactionTemplate(moviesTransactionManager);
+
 
         if ("Add".equals(action)) {
 
@@ -65,16 +75,29 @@ public class ActionServlet extends HttpServlet {
 
             Movie movie = new Movie(title, director, genre, rating, year);
 
-            moviesBean.addMovie(movie);
+            //moviesBean.addMovie(movie);
+            transactionTemplate.execute(status -> {
+                moviesBean.addMovie(movie);
+                return null;
+            });
             response.sendRedirect("moviefun");
             return;
 
         } else if ("Remove".equals(action)) {
 
             String[] ids = request.getParameterValues("id");
+            /*
             for (String id : ids) {
                 moviesBean.deleteMovieId(new Long(id));
-            }
+            }*/
+            
+            transactionTemplate.execute(status -> {
+                for (String id : ids) {
+                    moviesBean.deleteMovieId(new Long(id));
+                }
+
+                return null;
+            });
 
             response.sendRedirect("moviefun");
             return;
